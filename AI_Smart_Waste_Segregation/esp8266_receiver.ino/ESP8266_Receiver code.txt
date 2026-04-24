@@ -1,0 +1,88 @@
+#include <ESP8266WiFi.h> 
+#include <espnow.h>
+#include <Servo.h>
+
+// ================= SERVO SETUP =================
+Servo servo1;  // Infectious
+Servo servo2;  // Non-Infectious
+
+Servo servo3;  // Sharps
+
+// ================= PIN DEFINITIONS =================
+#define SERVO1_PIN D5
+#define SERVO2_PIN D6
+#define SERVO3_PIN D7
+
+int wasteType;
+
+// ================= RECEIVE CALLBACK =================
+void OnDataRecv(uint8_t *mac, uint8_t *incomingData, uint8_t len) {
+  memcpy(&wasteType, incomingData, sizeof(wasteType));
+
+  Serial.print("Received Waste Type: ");
+  Serial.println(wasteType);
+
+  if (wasteType == 1) {
+    openServo(servo1);
+  }
+  else if (wasteType == 2) {
+    openServo(servo2);
+  }
+  else if (wasteType == 3) {
+    openServo(servo3);
+  }
+}
+
+// ================= SERVO FUNCTION (UPDATED) =================
+void openServo(Servo &s) {
+
+  Serial.println("Opening Bin...");
+
+  // 🔼 Smooth Open (0 → 120 degrees)
+  for (int pos = 0; pos <= 120; pos += 2) {
+    s.write(pos);
+    delay(15);
+  }
+
+  delay(3000);  // Keep lid open
+
+  Serial.println("Closing Bin...");
+
+  // 🔽 Smooth Close (120 → 0 degrees)
+  for (int pos = 120; pos >= 0; pos -= 2) {
+    s.write(pos);
+    delay(15);
+  }
+}
+
+// ================= SETUP =================
+void setup() {
+  Serial.begin(115200);
+
+  WiFi.mode(WIFI_STA);
+
+  if (esp_now_init() != 0) {
+    Serial.println("ESP-NOW Init Failed");
+    return;
+  }
+
+  esp_now_set_self_role(ESP_NOW_ROLE_SLAVE);
+  esp_now_register_recv_cb(OnDataRecv);
+
+  // Attach servos
+  servo1.attach(SERVO1_PIN);
+  servo2.attach(SERVO2_PIN);
+  servo3.attach(SERVO3_PIN);
+
+  // Initial position (closed)
+  servo1.write(0);
+  servo2.write(0);
+  servo3.write(0);
+
+  Serial.println("ESP8266 Servo Receiver Ready");
+}
+
+// ================= LOOP =================
+void loop() {
+  // Nothing needed here
+}
